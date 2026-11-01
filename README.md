@@ -65,5 +65,5 @@ This is a free gift, provided as is, so I can't promise support.
 
 Built by [Paolo Segura](https://github.com/paolo-segura). Editing style informed by Mino Lee's free resource.
 Built on [HyperFrames](https://github.com/heygen-com/hyperframes) (Apache-2.0), [FFmpeg](https://ffmpeg.org),
-[whisper.cpp](https://github.com/ggml-org/whisper.cpp) (MIT) and GSAP (free under its own license). Captions use
+[whisper.cpp](https://github.com/ggml-org/whisper.cpp) (MIT), [Silero VAD](https://github.com/snakers4/silero-vad) (MIT, in `models/`) and GSAP (free under its own license). Captions use
 [TikTok Sans](https://github.com/tiktok/TikTokSans) (SIL OFL, see `fonts/OFL.txt`). Auto Edit's own code is MIT.

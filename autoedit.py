@@ -77,17 +77,49 @@ def normalize(src, out, meta, crop_x):
          "-c:a", "aac", "-b:a", "192k", "-ar", str(SR), "-ac", "1", str(out)], "Preparing the video")
 
 
+def voice_ranges(path):
+    """Where a voice detector hears speech. Volume can't tell a word from a rubbing shirt or a click; this can."""
+    audio = path.with_suffix(".voice.wav")
+    run(["ffmpeg", "-v", "error", "-y", "-i", str(path), "-vn", "-ac", "1", "-ar", "16000", str(audio)], "Extracting audio")
+    out = run(["whisper-vad-speech-segments", "-f", str(audio), "-vm", str(HOME / "models/ggml-silero-v5.1.2.bin")], "Finding your voice").stdout
+    return [(float(a) / 100, float(b) / 100) for a, b in re.findall(r"start = ([\d.]+), end = ([\d.]+)", out)]
+
+
 def find_silences(path, noise, min_gap):
-    log = subprocess.run(["ffmpeg", "-hide_banner", "-i", str(path), "-af", f"silencedetect=noise={noise}dB:d={min_gap}", "-f", "null", "-"],
-                         capture_output=True, text=True).stderr
-    starts = [float(x) for x in re.findall(r"silence_start: (-?[\d.]+)", log)]
-    ends = [float(x) for x in re.findall(r"silence_end: (-?[\d.]+)", log)]
-    return list(zip(starts, ends + [None] * (len(starts) - len(ends))))
+    """Keep only what is voice AND within 11 dB of this speaker's level, so pauses inside a sentence go too."""
+    import numpy as np
+    voice = voice_ranges(path)
+    if not voice:
+        raise Stop("No speech was found in this video. Auto Edit is for videos where someone is talking.")
+    audio = read_audio(path)
+    size = int(SR * 0.02)
+    frames = audio[:len(audio) // size * size].reshape(-1, size)
+    level = 20 * np.log10(np.sqrt((frames ** 2).mean(axis=1)) + 1e-9)
+    in_voice = np.zeros(len(level), dtype=bool)
+    for a, b in voice:
+        in_voice[int(a / 0.02):int(b / 0.02) + 1] = True
+    speaking = np.percentile(level[in_voice], 75)
+    noise = speaking - 11 if noise is None else noise
+    loud = np.flatnonzero(in_voice & (level >= noise))
+    speech, start, gap = [], None, max(int(min_gap / 0.02), 1)
+    for i, frame in enumerate(loud):
+        start = frame if start is None else start
+        if i + 1 == len(loud) or loud[i + 1] - frame > gap or not in_voice[frame:loud[i + 1]].all():
+            speech.append((start, frame + 1))
+            start = None
+    silences, at = [], 0
+    for a, b in speech:
+        if a > at:
+            silences.append((at * 0.02, a * 0.02))
+        at = b
+    if at < len(level):
+        silences.append((at * 0.02, len(level) * 0.02))
+    return silences
 
 
-def keep_ranges(duration, silences, manual, pad=0.1):
-    """Everything except silences and manual cuts. Pad keeps the ends of words from being clipped."""
-    removed = [(max(0, a + pad) if a > 0 else 0, (b - pad) if b is not None and b < duration else duration) for a, b in silences]
+def keep_ranges(duration, silences, manual, tail=0.06, lead=0.02):
+    """Everything except silences and manual cuts. Keeps each word's own fade so endings aren't clipped."""
+    removed = [(a + tail if a > 0 else 0, b - lead if b < duration else duration) for a, b in silences]
     removed += manual
     keep, at = [], 0.0
     for a, b in sorted(x for x in removed if x[1] > x[0]):
@@ -388,6 +420,7 @@ def doctor(_args):
             return False
 
     check("ffmpeg", bool(shutil.which("ffmpeg")) and bool(shutil.which("ffprobe")), "brew install ffmpeg")
+    check("voice detector", bool(shutil.which("whisper-vad-speech-segments")) and (HOME / "models/ggml-silero-v5.1.2.bin").exists(), "brew install whisper-cpp, then re-run the installer")
     check("Node", bool(shutil.which("node")), "brew install node")
     check("HyperFrames", HF_LOCAL.exists() or bool(shutil.which("hyperframes")), f"cd {HOME} && npm install")
     check("numpy", has_numpy(), f"re-run the installer, or {HOME}/.venv/bin/pip install numpy")
@@ -449,8 +482,8 @@ def main():
     p.add_argument("--no-punch", action="store_true", help="no zoom on cuts")
     p.add_argument("--cut", action="append", default=[], metavar="START-END", help="also remove this part, in seconds of the original, e.g. 12.3-14.1")
     p.add_argument("--fix", action="append", default=[], metavar="WRONG=RIGHT", help="correct a misheard word in captions")
-    p.add_argument("--gap", type=float, default=0.45, help="shortest pause to remove, seconds")
-    p.add_argument("--noise", type=float, default=-32, help="what counts as silence, dB (use -45 in a quiet room if speech gets clipped)")
+    p.add_argument("--gap", type=float, default=0.3, help="shortest pause to remove, seconds")
+    p.add_argument("--noise", type=float, help="what counts as silence, in dB (default: 11 dB under your speaking level; try -45 if words get clipped)")
     p.add_argument("--crop-x", type=float, default=0.5, help="landscape only: 0 keeps the left side, 1 the right")
     p.add_argument("--model", default="small", help="speech model: tiny, base, small, medium, large-v3")
     p.add_argument("--lang", help="language code such as en or tl (default: detect)")
