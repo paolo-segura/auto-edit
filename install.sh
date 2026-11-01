@@ -17,9 +17,13 @@ if ! command -v brew >/dev/null 2>&1; then
   done
 fi
 if ! command -v brew >/dev/null 2>&1; then
-  /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+  # This script arrives through a pipe, so point Homebrew at the keyboard or it can't ask for a password.
+  /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)" < /dev/tty
   for b in /opt/homebrew/bin/brew /usr/local/bin/brew; do
-    [ -x "$b" ] && eval "$("$b" shellenv)"
+    if [ -x "$b" ]; then
+      eval "$("$b" shellenv)"
+      grep -qs "brew shellenv" "$HOME/.zprofile" || echo "eval \"\$($b shellenv)\"" >> "$HOME/.zprofile"
+    fi
   done
 fi
 command -v brew >/dev/null 2>&1 || die "Homebrew didn't install. See https://brew.sh"

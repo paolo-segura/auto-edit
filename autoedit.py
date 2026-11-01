@@ -22,6 +22,7 @@ VIDEO_EXT = {".mp4", ".mov", ".m4v", ".mkv", ".avi", ".webm"}
 HF_LOCAL = HOME / "node_modules/.bin/hyperframes"
 HYPERFRAMES = str(HF_LOCAL) if HF_LOCAL.exists() else "hyperframes"
 WORK = Path.home() / ".auto-edit-work"
+os.environ.update(HYPERFRAMES_NO_TELEMETRY="1", DO_NOT_TRACK="1")
 WEAK = set("a an the and or but so of to in on at for with from my your our is are was were be that this if as "
            "ang ng sa na at si yung 'yung ko mo ka ay kung pero kasi para".split())
 
