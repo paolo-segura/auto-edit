@@ -12,8 +12,10 @@ Follow `~/.auto-edit/RULES.md`. Your job is what the tool can't judge: retakes, 
    approximate, so check word boundaries against the transcript.
 3. Write one hook: the most surprising true thing the speaker actually says, 12 words or fewer. Don't invent claims, numbers
    or results.
-4. Ask once: sound effects, yes or no? Music: their own file, the built-in beat, or none?
-5. Run `autoedit "VIDEO" --hook "..." --cut A-B [--sfx] [--music FILE|bed]`, and add `--fix "wrong=right"` for
+4. Ask once: clean style, or graphics behind them? Sound effects, yes or no? Music: their own file, the built-in beat, or
+   none? For behind-you, pick 2 to 5 words they actually say and pass `--behind "a,b"`, with optional
+   `--popup "word=short text or image file"`. Don't invent content.
+5. Run `autoedit "VIDEO" --hook "..." --cut A-B [--behind WORDS] [--sfx] [--music FILE|bed]`, and add `--fix "wrong=right"` for
    misheard names or words you spotted. If speech recognition mangled a language, add `--lang`.
 6. Check the result: extract a few frames with ffmpeg and look at them. Confirm that the hook is on frame 0, text doesn't
    cover the face, and retakes are gone. Say what you checked.
