@@ -25,7 +25,7 @@ fi
 command -v brew >/dev/null 2>&1 || die "Homebrew didn't install. See https://brew.sh"
 
 say "Installing ffmpeg, Node, speech recognition and Python"
-for pkg in git ffmpeg node whisper-cpp python@3.12; do
+for pkg in git ffmpeg node whisper-cpp python@3.14; do
   brew list --formula "$pkg" >/dev/null 2>&1 || brew install "$pkg"
 done
 
@@ -38,11 +38,12 @@ else
 fi
 
 say "Setting up"
-"$(brew --prefix python@3.12)/bin/python3.12" -m venv "$DIR/.venv"
+"$(brew --prefix python@3.14)/bin/python3.14" -m venv "$DIR/.venv"
 "$DIR/.venv/bin/pip" install --quiet --disable-pip-version-check -r "$DIR/requirements.txt"
 (cd "$DIR" && npm ci --silent --no-fund --no-audit)
+"$DIR/node_modules/.bin/hyperframes" browser ensure
 
-BIN="$(brew --prefix)/bin/autoedit"
+BIN="${AUTO_EDIT_BIN:-$(brew --prefix)/bin/autoedit}"
 cat > "$BIN" <<EOF
 #!/bin/bash
 export PATH="$(brew --prefix)/bin:\$PATH"
