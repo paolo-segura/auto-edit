@@ -23,6 +23,7 @@ HF_LOCAL = HOME / "node_modules/.bin/hyperframes"
 HYPERFRAMES = str(HF_LOCAL) if HF_LOCAL.exists() else "hyperframes"
 WORK = Path.home() / ".auto-edit-work"
 os.environ.update(HYPERFRAMES_NO_TELEMETRY="1", DO_NOT_TRACK="1")
+HOOK_TOP = 288  # below this line is clear of the app's top bar
 WEAK = set("a an the and or but so of to in on at for with from my your our is are was were be that this if as "
            "ang ng sa na at si yung 'yung ko mo ka ay kung pero kasi para".split())
 
@@ -232,6 +233,28 @@ def first_sentence(words):
     return text[0].upper() + text[1:], picked[-1][2]
 
 
+def head_top(video, seconds, folder):
+    """Highest point the speaker's head reaches during the hook, in pixels."""
+    import numpy as np
+    clip, mask = folder / "hook-part.mp4", folder / "hook-mask.mp4"
+    run(["ffmpeg", "-v", "error", "-y", "-i", str(video), "-t", f"{seconds:.3f}", "-an", "-c:v", "libx264", "-preset", "ultrafast", str(clip)], "Reading the hook")
+    run(["swift", str(HOME / "personmask.swift"), str(clip), str(mask)], "Finding your head")
+    raw = run_bytes(["ffmpeg", "-v", "error", "-i", str(mask), "-vf", "scale=108:192,format=gray", "-f", "rawvideo", "-"])
+    frames = np.frombuffer(raw, dtype=np.uint8).reshape(-1, 192, 108)
+    rows = np.flatnonzero(((frames > 128).sum(axis=2) >= 4).any(axis=0))  # 4 pixels wide, so a stray speck isn't a head
+    return int(rows[0]) * 10 if len(rows) else H
+
+
+def hook_place(text, top):
+    """The band above the head, from the app's top bar to the hairline. A tight frame shrinks the card, never lowers it."""
+    band = top - 20 - HOOK_TOP
+    for size in (54, 48, 42):
+        lines = -(-len(text) * size * 0.54 // 840)
+        if lines * size * 1.14 + 44 <= band:
+            return f"top:{HOOK_TOP}px;max-width:900px;font-size:{size}px"
+    return None
+
+
 def plain(text):
     return re.sub(r"[^\w']", "", text).lower()
 
@@ -270,7 +293,7 @@ def graphics(words, duration, behind, popups):
     return big, placed
 
 
-def composition(folder, video, words, duration, hook, hook_end, big=(), cards=(), person=None):
+def composition(folder, video, words, duration, hook, hook_end, big=(), cards=(), person=None, hook_style=None):
     captions = chunks([w for w in words if w[1] >= hook_end - 0.05])
     tops, js, track = [], [], iter(range(10, 100000))
 
@@ -282,6 +305,8 @@ def composition(folder, video, words, duration, hook, hook_end, big=(), cards=()
 
     if hook:
         clip("hook", 0, hook_end, hook, "hook")
+        if hook_style:
+            tops[-1] = tops[-1].replace('id="hook"', f'id="hook" style="{hook_style}"')
     for k, (a, b, text) in enumerate(big):
         n = len(text)
         size = int(min(250, 1000 / n)) if n <= 6 else int(1500 / n)
@@ -463,10 +488,15 @@ def edit(args):
         hook, hook_end = first_sentence(words)
         if args.hook:
             hook, hook_end = args.hook, min(max(hook_end, 2.5), 6)
+    hook_style = None
+    if hook:
+        hook_style = hook_place(hook, head_top(cut_video, hook_end, job))
+        if not hook_style:
+            print("    No room above your head for the hook, so it sits on your chest. Leave more headroom when filming to put it on top.")
     print("4/5 Rendering hook and captions" + (f'\n    Hook: "{hook}"' if hook else ""))
     project = job / "project"
     project.mkdir()
-    count = composition(project, cut_video, words, duration, hook, hook_end, big, cards, person)
+    count = composition(project, cut_video, words, duration, hook, hook_end, big, cards, person, hook_style)
     picture = job / "picture.mp4"
     run([HYPERFRAMES, "render", str(project), "-o", str(picture), "--sdr", "-f", str(FPS)], "Rendering")
 
