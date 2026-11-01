@@ -343,8 +343,10 @@ def composition(folder, video, words, duration, hook, hook_end, big=(), cards=()
     (folder / "fonts").mkdir(exist_ok=True)
     shutil.copy(HOME / "fonts/TikTokSans.ttf", folder / "fonts/TikTokSans.ttf")
     nl = "\n"
+    custom = HOME / "custom.css"  # yours to edit: updates never touch it
+    css = CSS + (custom.read_text() if custom.exists() else "")
     (folder / "index.html").write_text(f"""<!doctype html>
-<html><head><meta charset="utf-8"><title>reel</title><style>{CSS}</style></head>
+<html><head><meta charset="utf-8"><title>reel</title><style>{css}</style></head>
 <body>
 <div id="root" data-composition-id="reel" data-start="0" data-duration="{duration:.3f}" data-width="{W}" data-height="{H}">
 <video id="base" src="base.mp4" muted playsinline data-start="0" data-duration="{duration:.3f}" data-track-index="0"></video>
@@ -593,6 +595,10 @@ def wizard():
         picked = input("Which words do you say that should appear big? Separate with commas, 2 to 5 is plenty: ").strip()
         if picked:
             argv += ["--behind", picked]
+    else:
+        hook = input("Type your hook, or press Enter to use your first sentence: ").strip()
+        if hook:
+            argv += ["--hook", hook]
     if ask("Add sound effects?"):
         argv.append("--sfx")
     if ask("Add background music?"):

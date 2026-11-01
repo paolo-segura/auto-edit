@@ -68,7 +68,8 @@ fi
 
 if [ -d "$HOME/.claude" ]; then
   mkdir -p "$HOME/.claude/skills/auto-edit"
-  cp "$DIR/skill/auto-edit/SKILL.md" "$HOME/.claude/skills/auto-edit/SKILL.md"
+  # Keep a skill someone has already customized.
+  [ -f "$HOME/.claude/skills/auto-edit/SKILL.md" ] || cp "$DIR/skill/auto-edit/SKILL.md" "$HOME/.claude/skills/auto-edit/SKILL.md"
   CLAUDE_NOTE="Claude Code found: you can also say \"edit this video\" there."
 else
   CLAUDE_NOTE=""

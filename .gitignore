@@ -9,3 +9,4 @@ __pycache__/
 *.mp3
 .DS_Store
 !sounds/*.mp3
+custom.css

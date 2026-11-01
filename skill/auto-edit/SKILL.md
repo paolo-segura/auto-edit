@@ -22,3 +22,9 @@ Follow `~/.auto-edit/RULES.md`. Your job is what the tool can't judge: retakes, 
 7. Tell them where the file is and that they should watch it before posting. Never post it.
 
 If a command fails, run `autoedit doctor` and fix what it names. Never change or delete the original video.
+
+## Changing the look
+
+To change the hook, captions or graphics, write CSS to `~/.auto-edit/custom.css`. It loads after the defaults and updates
+never touch it. The classes are `.hook`, `.cap`, `.big` and `.card`. Keep text clear of the app's buttons (top y0-288,
+bottom y1536+, and x900+ from y960 down). To change how you work, edit this skill file; reinstalling won't overwrite it.

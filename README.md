@@ -17,9 +17,17 @@ curl -fsSL https://raw.githubusercontent.com/paolo-segura/auto-edit/main/install
 It takes 5 to 15 minutes and may ask for your Mac password (the characters don't show as you type). You'll need about
 5 GB free. It installs Homebrew, ffmpeg, Node, Python and whisper-cpp if they're missing.
 
+Or, if you use Claude Code, paste this prompt into it:
+
+```text
+Install Auto Edit for me from https://github.com/paolo-segura/auto-edit by running its install command from the README.
+If it needs my Mac password, stop and tell me to run that one command in Terminal myself. When it finishes, run
+`autoedit doctor` and tell me how to edit my first video.
+```
+
 ## Use
 
-Double-click **Auto Edit** on your Desktop. Drag your video into the window, then answer a few questions: style, sound
+Double-click **Auto Edit** on your Desktop. Drag your video into the window, then answer a few questions: style, hook, sound
 effects, and music. The finished reel lands next to your original, ending in `-edited.mp4`.
 
 The first time, macOS may block it. Right-click the file, choose **Open**, then **Open** again. Your first edit also
@@ -43,6 +51,20 @@ autoedit doctor                           # check your setup
 ```
 
 `autoedit --help` lists the rest. See [RULES.md](RULES.md) for the editing style.
+
+## Make it yours
+
+The defaults are only a starting point.
+
+- **Hook:** type your own when the app asks, or use `--hook "Your hook"`.
+- **Design:** create `~/.auto-edit/custom.css` to change the hook, captions and graphics. Updates never touch it. For
+  example, `.hook { background:#ffe14d; }` or `.cap { font-size:60px; }`. The classes are `.hook`, `.cap`, `.big` and `.card`.
+- **Claude's editing style:** edit `~/.claude/skills/auto-edit/SKILL.md`. Reinstalling keeps your version.
+- **Anything else:** fork this repo and edit `autoedit.py`. To install your fork, set `AUTO_EDIT_REPO` to its URL before
+  running your copy of `install.sh`.
+
+Run the install command again to update. If you edited the files in `~/.auto-edit` directly, the update stops rather than
+overwrite them, so keep your changes in `custom.css` or a fork.
 
 ## With Claude Code (optional)
 
