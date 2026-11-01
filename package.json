@@ -1,0 +1,8 @@
+{
+  "name": "auto-edit",
+  "private": true,
+  "license": "MIT",
+  "dependencies": {
+    "hyperframes": "0.8.223"
+  }
+}
