@@ -213,7 +213,7 @@ def first_sentence(words):
     text = " ".join(x[0] for x in picked)
     if not picked or len(picked) > 12 or len(text) > 70 or not re.search(r"[.?!]$", text):
         return None, 0
-    return text, picked[-1][2]
+    return text[0].upper() + text[1:], picked[-1][2]
 
 
 def composition(folder, video, words, duration, hook, hook_end):
