@@ -21,6 +21,8 @@ jobs:
         run: |
           git config --global --add safe.directory '*'
           Get-Content install.ps1 -Raw | Invoke-Expression
+          # Later steps don't see PATH changes, the way a new window would, so hand them over
+          foreach ($scope in "Machine", "User") { [Environment]::GetEnvironmentVariable("Path", $scope) -split ";" | Where-Object { $_ } | Add-Content $env:GITHUB_PATH }
 
       - name: Make a spoken test clip
         shell: powershell
