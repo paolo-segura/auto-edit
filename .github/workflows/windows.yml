@@ -1,0 +1,56 @@
+# Installs Auto Edit on a fresh Windows machine with install.ps1 and edits a spoken test clip in both styles.
+name: Windows
+
+on:
+  workflow_dispatch:
+  push:
+    paths: ["autoedit.py", "personmask.py", "install.ps1", "requirements.txt", "package*.json", ".github/workflows/windows.yml"]
+
+jobs:
+  install-and-edit:
+    runs-on: windows-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install with install.ps1
+        shell: powershell  # Windows PowerShell 5.1, what most people have
+        env:
+          AUTO_EDIT_REPO: ${{ github.workspace }}
+          AUTO_EDIT_BRANCH: ${{ github.ref_name }}
+        run: |
+          git config --global --add safe.directory '*'
+          Get-Content install.ps1 -Raw | Invoke-Expression
+
+      - name: Make a spoken test clip
+        shell: powershell
+        run: |
+          Add-Type -AssemblyName System.Speech
+          $voice = New-Object System.Speech.Synthesis.SpeechSynthesizer
+          $voice.Rate = -1
+          $voice.SetOutputToWaveFile("$env:RUNNER_TEMP\speech.wav")
+          $voice.Speak("Most people never start. Fear wins because it sounds like a plan. So today, start small. Write one line, record one video, and post it.")
+          $voice.Dispose()
+          ffmpeg -v error -f lavfi -i "testsrc2=size=1080x1920:rate=30" -i "$env:RUNNER_TEMP\speech.wav" -shortest -c:v libx264 -pix_fmt yuv420p -c:a aac "$env:RUNNER_TEMP\talk.mp4"
+          if ($LASTEXITCODE) { exit 1 }
+
+      - name: Edit, clean style
+        shell: cmd
+        run: '"%USERPROFILE%\.auto-edit\bin\autoedit.cmd" "%RUNNER_TEMP%\talk.mp4" --sfx --music bed -o "%RUNNER_TEMP%\out\clean.mp4"'
+
+      - name: Edit, behind-you style
+        shell: cmd
+        run: '"%USERPROFILE%\.auto-edit\bin\autoedit.cmd" "%RUNNER_TEMP%\talk.mp4" --behind "fear,plan" --popup "start=Start small" --sfx -o "%RUNNER_TEMP%\out\behind.mp4"'
+
+      - name: Check the reels
+        shell: bash
+        run: |
+          for f in clean behind; do
+            ffprobe -v error -show_entries stream=codec_type,width,height:format=duration -of compact "$RUNNER_TEMP/out/$f.mp4"
+          done
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: reels
+          path: ${{ runner.temp }}/out

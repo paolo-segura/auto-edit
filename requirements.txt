@@ -1,1 +1,2 @@
 numpy>=2,<3
+mediapipe==1.2.2; sys_platform != "darwin"

@@ -1,9 +1,14 @@
-// Writes a greyscale person mask video using Apple's built-in Vision framework. Usage: personmask in.mp4 mask.mp4
+// Writes a greyscale person mask video using Apple's built-in Vision framework. Usage: personmask in.mp4 mask.mp4 [FRAMES]
+// FRAMES, such as 60-120,300-390, limits the work to those frames (end excluded); the rest come out black.
 import AVFoundation
 import CoreImage
 import Vision
 
 let args = CommandLine.arguments
+let wanted: [Range<Int>]? = args.count > 3 ? args[3].split(separator: ",").map { part in
+    let ends = part.split(separator: "-").map { Int($0)! }
+    return ends[0]..<ends[1]
+} : nil
 let asset = AVURLAsset(url: URL(fileURLWithPath: args[1]))
 let track = asset.tracks(withMediaType: .video)[0]
 let size = track.naturalSize
@@ -30,9 +35,12 @@ let sequence = VNSequenceRequestHandler()
 var count = 0
 while let sample = output.copyNextSampleBuffer() {
     let frame = CMSampleBufferGetImageBuffer(sample)!
-    try sequence.perform([request], on: frame)
     var image = CIImage(color: .black).cropped(to: CGRect(origin: .zero, size: size))
-    if let mask = request.results?.first?.pixelBuffer {
+    let needed = wanted?.contains { $0.contains(count) } ?? true
+    if needed {
+        try sequence.perform([request], on: frame)
+    }
+    if needed, let mask = request.results?.first?.pixelBuffer {
         let raw = CIImage(cvPixelBuffer: mask)
         image = raw.transformed(by: CGAffineTransform(scaleX: size.width / raw.extent.width, y: size.height / raw.extent.height))
     }

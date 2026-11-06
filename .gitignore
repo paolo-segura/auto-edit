@@ -10,3 +10,7 @@ __pycache__/
 .DS_Store
 !sounds/*.mp3
 custom.css
+.build/
+models/selfie_multiclass_256x256.tflite
+whisper/
+bin/

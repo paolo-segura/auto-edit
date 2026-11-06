@@ -46,6 +46,9 @@ say "Setting up"
 "$DIR/.venv/bin/pip" install --quiet --disable-pip-version-check -r "$DIR/requirements.txt"
 (cd "$DIR" && npm ci --silent --no-fund --no-audit)
 "$DIR/node_modules/.bin/hyperframes" browser ensure
+# Compile the person finder once, so edits don't wait for Swift to compile it every time.
+mkdir -p "$DIR/.build"
+swiftc -O "$DIR/personmask.swift" -o "$DIR/.build/personmask" || echo "Couldn't compile the person finder now; Auto Edit will try again on first use."
 
 BIN="${AUTO_EDIT_BIN:-$(brew --prefix)/bin/autoedit}"
 cat > "$BIN" <<EOF
