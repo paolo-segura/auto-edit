@@ -102,7 +102,7 @@ def prepare(src, out, meta, crop_x, ranges):
                      f"fps={FPS},select='{keep}',setpts=N/{FPS}/TB,format=yuv420p,"
                      f"setparams=color_primaries=bt709:color_trc=bt709:colorspace=bt709[v]", encoding="utf-8")
     # A working copy: quick to write and nearly lossless, since the export encodes it once more.
-    run(["ffmpeg", "-v", "error", "-y", "-i", str(src), "-filter_complex_script", str(graph), "-map", "[v]", "-an", "-map_metadata", "-1",
+    run(["ffmpeg", "-v", "error", "-y", "-i", str(src), "-/filter_complex", str(graph), "-map", "[v]", "-an", "-map_metadata", "-1",
          "-c:v", "libx264", "-crf", "14", "-preset", "veryfast", str(out)], "Preparing the video")
 
 
@@ -536,7 +536,7 @@ def export(video, audio, layers, mask, out, graph):
         base = f"[{name}on]"
     parts.append(f"{base}format=yuv420p[v]")
     graph.write_text(";\n".join(parts), encoding="utf-8")
-    run(["ffmpeg", "-v", "error", "-y", *inputs, "-filter_complex_script", str(graph), "-map", "[v]", "-map", "1:a", "-map_metadata", "-1",
+    run(["ffmpeg", "-v", "error", "-y", *inputs, "-/filter_complex", str(graph), "-map", "[v]", "-map", "1:a", "-map_metadata", "-1",
          "-c:v", "libx264", "-preset", "veryfast", "-crf", "18", "-af", "loudnorm=I=-15:TP=-1.5:LRA=9",
          "-c:a", "aac", "-b:a", "192k", "-ar", str(SR), "-movflags", "+faststart", "-shortest", str(out)], "Exporting")
 
