@@ -31,7 +31,7 @@ jobs:
           $voice = New-Object System.Speech.Synthesis.SpeechSynthesizer
           $voice.Rate = -1
           $voice.SetOutputToWaveFile("$env:RUNNER_TEMP\speech.wav")
-          $voice.Speak("Most people never start. Fear wins because it sounds like a plan. So today, start small. Write one line, record one video, and post it.")
+          $voice.Speak("Most people never start. Fear wins because it sounds like a. Fear wins because it sounds like a plan. So today, start small. Write one line, record one video, and post it.")
           $voice.Dispose()
           ffmpeg -v error -f lavfi -i "testsrc2=size=1080x1920:rate=30" -i "$env:RUNNER_TEMP\speech.wav" -shortest -c:v libx264 -pix_fmt yuv420p -c:a aac "$env:RUNNER_TEMP\talk.mp4"
           if ($LASTEXITCODE) { exit 1 }

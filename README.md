@@ -1,7 +1,10 @@
 # Auto Edit
 
-Turn a raw talking video into a ready-to-post vertical reel on your Mac or Windows PC: silences cut, hook on screen,
-captions timed to your words, and optional sound effects.
+Turn a raw talking video into a ready-to-post vertical reel on your Mac or Windows PC: silences cut, repeated takes
+removed, hook on screen, captions timed to your words, and optional sound effects.
+
+Said a line twice because the first one came out wrong? Just say it again. Auto Edit keeps your last take and lists
+what it removed, so you can check.
 
 Free. No account or API key. Your video stays on your computer, nothing gets posted, and your original file isn't
 changed.
@@ -59,7 +62,8 @@ autoedit video.mov --music song.mp3       # your own music (--music bed for the 
 autoedit video.mov --hook "Your hook"     # your own hook
 autoedit video.mov --fix "wrong=right"    # correct a misheard word
 autoedit transcript video.mov             # see what you said, with timestamps
-autoedit video.mov --cut 12.3-14.1        # remove a bad take, using those timestamps
+autoedit video.mov --cut 12.3-14.1        # remove a bad take it missed, using those timestamps
+autoedit video.mov --keep-retakes         # keep lines you said twice on purpose
 autoedit doctor                           # check your setup
 ```
 

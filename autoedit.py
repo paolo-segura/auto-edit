@@ -30,6 +30,8 @@ os.environ.update(HYPERFRAMES_NO_TELEMETRY="1", DO_NOT_TRACK="1")
 HOOK_TOP = 288  # below this line is clear of the app's top bar
 WEAK = set("a an the and or but so of to in on at for with from my your our is are was were be that this if as "
            "ang ng sa na at si yung 'yung ko mo ka ay kung pero kasi para".split())
+# Sounds and restart words that sit between a broken take and the next one; ignored when matching takes.
+FILLERS = set("uh um uhm ah ahh eh er erm hmm mm ano ay oops sorry wait teka ulit mali".split())
 
 CSS = """
 @font-face { font-family:"TTS"; src:url("fonts/TikTokSans.ttf"); font-weight:300 900; }
@@ -184,6 +186,79 @@ def keep_ranges(duration, silences, manual, tail=0.06, lead=0.02):
     if at < end:
         keep.append((at, end))
     return [(a, b) for a, b in keep if b - a >= 0.15]
+
+
+def to_source(t, ranges, end=False):
+    """A time in the cut, as a time in the original. On a cut, a word's start belongs after it and its end before it."""
+    at = 0.0
+    for a, b in ranges:
+        if t < at + b - a or (end and t == at + b - a):
+            return a + t - at
+        at += b - a
+    return ranges[-1][1]
+
+
+def words_to_source(words, ranges):
+    """Words timed on the cut, moved onto the original. Whisper sometimes stretches a word across a cut: it goes to the side holding most of it."""
+    cuts, at = [], 0.0
+    for a, b in ranges[:-1]:
+        at += b - a
+        cuts.append(at)
+    out = []
+    for text, s, e in words:
+        for c in cuts:
+            if s < c < e:
+                s, e = (c, e) if c - s < e - c else (s, c)
+        out.append((text, to_source(s, ranges), to_source(e, ranges, end=True)))
+    return out
+
+
+def retime(words, ranges):
+    """Words timed on the original, moved onto the cut. A word whose middle was cut out is dropped."""
+    out, at = [], 0.0
+    for a, b in ranges:
+        out += [(t, at + max(s - a, 0), at + min(e, b) - a) for t, s, e in words if a <= (s + e) / 2 < b]
+        at += b - a
+    return out
+
+
+def find_retakes(words, silences):
+    """A line said again is a retake. Keep the last take: people restart because the first one went wrong.
+
+    Only near-identical restarts count, so a list like "you need to sleep, you need to eat" stays.
+    Returns (start, end, text) on the original's timeline, cut in the pauses around the bad take where there are any."""
+    from difflib import SequenceMatcher
+    content = [k for k, w in enumerate(words) if plain(w[0]) and plain(w[0]) not in FILLERS]
+    toks = [plain(words[k][0]) for k in content]
+
+    def retake(i, j):
+        n = j - i
+        a, b = toks[i:j], toks[j:j + n]
+        if len(b) < n:
+            return False
+        # The last word of a broken take is often cut off ("sta" for "start") or misheard.
+        cut_off = b[-1].startswith(a[-1]) or SequenceMatcher(None, a[-1], b[-1]).ratio() >= 0.75
+        if a[:-1] == b[:-1] and cut_off:
+            # Two words only as a stumble ("because it, because it sounds"), never a finished line said twice for effect.
+            return n >= 3 or (n == 2 and not re.search(r"[.?!]$", words[content[j - 1]][0]))
+        return n >= 7 and a[:3] == b[:3] and SequenceMatcher(None, a, b).ratio() >= 0.85
+
+    def pause_ending_at(t):
+        return min((s for s in silences if abs(s[1] - t) < 0.4), key=lambda s: abs(s[1] - t), default=None)
+
+    spans, i = [], 0
+    while i < len(toks):
+        j = next((j for j in range(i + 1, min(i + 41, len(toks)))
+                  if words[content[j]][1] - words[content[i]][1] <= 30 and retake(i, j)), None)
+        if j is None:
+            i += 1
+            continue
+        first, again = words[content[i]][1], words[content[j]][1]
+        before, after = pause_ending_at(first), pause_ending_at(again)
+        spans.append((before[0] + 0.06 if before else first, after[1] - 0.02 if after else again - 0.05,
+                      " ".join(w[0] for w in words[content[i]:content[j]])))
+        i = j
+    return spans
 
 
 def swift_tool():
@@ -564,7 +639,7 @@ def edit(args):
     shutil.rmtree(job, ignore_errors=True)
     job.mkdir(parents=True)
 
-    print(f"1/5 Cutting the pauses from {src.name} ({meta['duration']:.0f}s)")
+    print(f"1/5 Finding the pauses in {src.name} ({meta['duration']:.0f}s)")
     if meta["w"] > meta["h"]:
         print("    Landscape video: cropping the centre to vertical. Use --crop-x 0 (left) to 1 (right) if you're off-centre.")
     original = job / "original.wav"
@@ -574,17 +649,27 @@ def edit(args):
     ranges = keep_ranges(meta["duration"], silences, manual)
     if not ranges:
         raise Stop("Everything was detected as silence. Try --noise -45, or --no-cuts.")
-    cut_video, speech = job / "cut.mp4", job / "speech.wav"
-    prepare(src, cut_video, meta, args.crop_x, ranges)
+    speech = job / "speech.wav"
     cut_audio(sound, ranges, speech)
-    duration = min(sum(b - a for a, b in ranges), probe_duration(cut_video))
-    print(f"    {meta['duration']:.1f}s down to {duration:.1f}s, {len(ranges) - 1} cuts")
 
     print("2/5 Transcribing on this computer (the first run downloads a speech model, about 500 MB)")
     words = transcribe(speech, job / "t", args.model, args.lang)
     if not words or is_phantom(words):
         raise Stop("No speech was found in this video. Auto Edit is for videos where someone is talking.")
-    words = fix_words(words, [f.split("=", 1) for f in args.fix if "=" in f])
+    words = words_to_source(words, ranges)
+    retakes = [] if args.keep_retakes else find_retakes(words, silences)
+    if retakes:
+        ranges = keep_ranges(meta["duration"], silences, manual + [(a, b) for a, b, _ in retakes])
+        cut_audio(sound, ranges, speech)
+        print(f"    Removed {len(retakes)} retake{'s' if len(retakes) > 1 else ''}, keeping your last take each time:")
+        for a, _b, text in retakes:
+            print(f"      {a // 60:.0f}:{a % 60:04.1f}  \"{text[:60]}\"")
+        print("    To keep them all, add --keep-retakes.")
+    words = fix_words(retime(words, ranges), [f.split("=", 1) for f in args.fix if "=" in f])
+    cut_video = job / "cut.mp4"
+    prepare(src, cut_video, meta, args.crop_x, ranges)
+    duration = min(sum(b - a for a, b in ranges), probe_duration(cut_video))
+    print(f"    {meta['duration']:.1f}s down to {duration:.1f}s, {len(ranges) - 1} cuts")
 
     popups = [p.split("=", 1) for p in args.popup if "=" in p]
     behind = [w.strip() for w in ",".join(args.behind).split(",") if w.strip()]
@@ -759,6 +844,7 @@ def main():
     p.add_argument("--hook", help="your own hook text (default: the first sentence, if it's short)")
     p.add_argument("--no-hook", action="store_true", help="captions only")
     p.add_argument("--no-cuts", action="store_true", help="keep the pauses")
+    p.add_argument("--keep-retakes", action="store_true", help="keep lines you said twice (default: only the last take stays)")
     p.add_argument("--behind", action="append", default=[], metavar="WORDS", help="words to show big behind you when you say them, comma-separated, e.g. \"fear,lazy\"")
     p.add_argument("--popup", action="append", default=[], metavar="WORD=CONTENT", help="pop-up card behind you when you say WORD. CONTENT is short text or an image file")
     p.add_argument("--cut", action="append", default=[], metavar="START-END", help="also remove this part, in seconds of the original, e.g. 12.3-14.1")

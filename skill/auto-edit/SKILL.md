@@ -8,8 +8,9 @@ description: Edit a raw talking video into a vertical reel with the local `autoe
 Follow `~/.auto-edit/RULES.md`. Your job is what the tool can't judge: retakes, the hook, and caption mistakes.
 
 1. Run `autoedit transcript "VIDEO"` and read it.
-2. Find retakes and fumbles. Keep the last good take. Note each bad part as `--cut START-END`, in seconds. Times are
-   approximate, so check word boundaries against the transcript.
+2. The tool removes a line said again by itself, keeping the last take. Find what it can't: a line reworded on the
+   retake, or a stumble mid-sentence. Note each as `--cut START-END`, in seconds. Times are approximate, so check word
+   boundaries against the transcript. If a repeat is on purpose, for emphasis, add `--keep-retakes`.
 3. Write one hook: the most surprising true thing the speaker actually says, 12 words or fewer. Don't invent claims, numbers
    or results.
 4. Ask once: clean style, or graphics behind them? Sound effects, yes or no? Music: their own file, the built-in beat, or
